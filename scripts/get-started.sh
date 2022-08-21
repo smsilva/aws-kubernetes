@@ -6,13 +6,73 @@ unzip awscliv2.zip
 sudo ./aws/install
 aws --version
 
-curl --silent --location "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
+curl \
+  --silent \
+  --location "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" \
+| tar xz -C /tmp
 sudo mv /tmp/eksctl /usr/local/bin
 eksctl version
+ecksctl get clusters
 
-# https://docs.aws.amazon.com/pt_br/eks/latest/userguide/create-kubeconfig.html
+# https://docs.aws.amazon.com/eks/latest/userguide/create-kubeconfig.html
 aws eks update-kubeconfig \
   --region us-east-1 \
   --name my-cluster
 
-ecksctl get clusters
+# https://docs.aws.amazon.com/eks/latest/userguide/create-kubeconfig.html#create-kubeconfig-manually
+export region_code=region-code
+export cluster_name=my-cluster
+export account_id=111122223333
+
+cluster_endpoint=$(aws eks describe-cluster \
+  --region $region_code \
+  --name $cluster_name \
+  --query "cluster.endpoint" \
+  --output text)
+
+certificate_data=$(aws eks describe-cluster \
+  --region $region_code \
+  --name $cluster_name \
+  --query "cluster.certificateAuthority.data" \
+  --output text)
+
+mkdir -p ~/.kube
+
+#!/bin/bash
+read -r -d '' KUBECONFIG <<EOF
+apiVersion: v1
+clusters:
+- cluster:
+    certificate-authority-data: $certificate_data
+    server: $cluster_endpoint
+  name: arn:aws:eks:$region_code:$account_id:cluster/$cluster_name
+contexts:
+- context:
+    cluster: arn:aws:eks:$region_code:$account_id:cluster/$cluster_name
+    user: arn:aws:eks:$region_code:$account_id:cluster/$cluster_name
+  name: arn:aws:eks:$region_code:$account_id:cluster/$cluster_name
+current-context: arn:aws:eks:$region_code:$account_id:cluster/$cluster_name
+kind: Config
+preferences: {}
+users:
+- name: arn:aws:eks:$region_code:$account_id:cluster/$cluster_name
+  user:
+    exec:
+      apiVersion: client.authentication.k8s.io/v1beta1
+      command: aws
+      args:
+        - --region
+        - $region_code
+        - eks
+        - get-token
+        - --cluster-name
+        - $cluster_name
+        # - "- --role-arn"
+        # - "arn:aws:iam::$account_id:role/my-role"
+      # env:
+        # - name: "AWS_PROFILE"
+        #   value: "aws-profile"
+EOF
+echo "${KUBECONFIG}" > ~/.kube/config
+
+# https://registry.terraform.io/providers/hashicorp/helm/latest/docs#exec-plugins

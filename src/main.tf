@@ -14,14 +14,6 @@ module "vpc" {
   tags = var.vpc_tags
 }
 
-output "vpc_id" {
-  value = module.vpc.vpc_id
-}
-
-output "private_subnets" {
-  value = module.vpc.private_subnets
-}
-
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
   version = "~> 18.0"
@@ -36,7 +28,9 @@ module "eks" {
     coredns = {
       resolve_conflicts = "OVERWRITE"
     }
+
     kube-proxy = {}
+
     vpc-cni = {
       resolve_conflicts = "OVERWRITE"
     }
@@ -53,35 +47,6 @@ module "eks" {
     ]
   }
 
-  self_managed_node_groups = {
-    one = {
-      name         = "mixed-1"
-      max_size     = 5
-      desired_size = 3
-
-      use_mixed_instances_policy = true
-
-      mixed_instances_policy = {
-        instances_distribution = {
-          on_demand_base_capacity                  = 0
-          on_demand_percentage_above_base_capacity = 10
-          spot_allocation_strategy                 = "capacity-optimized"
-        }
-
-        override = [
-          {
-            instance_type     = "m5.large"
-            weighted_capacity = "1"
-          },
-          {
-            instance_type     = "m6i.large"
-            weighted_capacity = "2"
-          },
-        ]
-      }
-    }
-  }
-
   eks_managed_node_group_defaults = {
     disk_size = 50
 
@@ -89,7 +54,8 @@ module "eks" {
       "m6i.large",
       "m5.large",
       "m5n.large",
-    "m5zn.large"]
+      "m5zn.large"
+    ]
   }
 
   eks_managed_node_groups = {
