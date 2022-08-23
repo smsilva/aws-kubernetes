@@ -1,28 +1,26 @@
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
-  version = "~> 3.14.2"
+  version = ">= 3.0.0, < 4.0.0"
 
-  name = var.vpc_name
-  cidr = var.vpc_cidr
-
-  azs             = var.vpc_azs
-  private_subnets = var.vpc_private_subnets
-  public_subnets  = var.vpc_public_subnets
-
+  name               = var.vpc_name
+  cidr               = var.vpc_cidr
+  azs                = var.vpc_azs
+  private_subnets    = var.vpc_private_subnets
+  public_subnets     = var.vpc_public_subnets
   enable_nat_gateway = var.vpc_enable_nat_gateway
-
-  tags = var.vpc_tags
+  tags               = var.vpc_tags
 }
 
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
-  version = "~> 18.0"
+  version = ">= 18.0.0, < 19.0.0"
 
-  cluster_name    = "my-cluster"
-  cluster_version = "1.22"
-
+  cluster_name                    = "wasp-sandbox-${random_string.id.result}"
+  cluster_version                 = "1.22"
   cluster_endpoint_private_access = true
   cluster_endpoint_public_access  = true
+  vpc_id                          = module.vpc.vpc_id
+  subnet_ids                      = module.vpc.private_subnets
 
   cluster_addons = {
     coredns = {
@@ -36,12 +34,10 @@ module "eks" {
     }
   }
 
-  vpc_id     = module.vpc.vpc_id
-  subnet_ids = module.vpc.private_subnets
-
   self_managed_node_group_defaults = {
     instance_type                          = "m6i.large"
     update_launch_template_default_version = true
+
     iam_role_additional_policies = [
       "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
     ]
