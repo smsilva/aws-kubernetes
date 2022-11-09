@@ -17,7 +17,7 @@ ecksctl get clusters
 # https://docs.aws.amazon.com/eks/latest/userguide/create-kubeconfig.html
 aws eks update-kubeconfig \
   --region "us-east-2" \
-  --name "wasp-sandbox-155jhz"
+  --name "wasp-sandbox-022zwf"
 
 # https://docs.aws.amazon.com/eks/latest/userguide/create-kubeconfig.html#create-kubeconfig-manually
 export region_code=region-code
