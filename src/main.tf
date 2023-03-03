@@ -12,7 +12,7 @@ module "eks" {
   version = ">= 18.0.0, < 19.0.0"
 
   cluster_name                            = local.cluster_name
-  cluster_version                         = "1.23"
+  cluster_version                         = "1.24"
   cluster_endpoint_private_access         = true
   cluster_endpoint_public_access          = true
   vpc_id                                  = module.vpc.vpc_id
