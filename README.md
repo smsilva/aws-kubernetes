@@ -109,7 +109,7 @@ echo "${KUBECONFIG}" > ~/.kube/config
 
 [exec-plugins](https://registry.terraform.io/providers/hashicorp/helm/latest/docs#exec-plugins)
 
-##  4. Other
+##  4. External Secrets
 
 ### 4.1. Creating an IAM OIDC provider for your cluster
 
@@ -195,3 +195,70 @@ aws iam get-policy-version \
 kubectl describe serviceaccount ${K8S_SERVICE_ACCOUNT_NAME?} \
   --namespace ${K8S_SERVICE_ACCOUNT_NAMESPACE?}
 ```
+
+### 4.2. Setup Cluster Secret Store
+
+[EKS Service Account credentials
+](https://external-secrets.io/v0.8.1/provider/aws-secrets-manager/#eks-service-account-credentials)
+
+```bash
+helm repo add external-secrets https://charts.external-secrets.io
+
+helm repo update
+
+helm search repo external-secrets/external-secrets
+
+helm upgrade \
+  --install \
+  --namespace external-secrets \
+  --create-namespace \
+  external-secrets external-secrets/external-secrets \
+  --wait
+
+cat <<EOF | kubectl apply -f -
+apiVersion: external-secrets.io/v1beta1
+kind: ClusterSecretStore
+metadata:
+  name: aws-secrets-manager
+spec:
+  provider:
+    aws:
+      service: SecretsManager
+      region: us-east-2
+
+      auth:
+        jwt:
+          serviceAccountRef:
+            name: my-service-account
+            namespace: default
+---
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: docker-hub
+spec:
+  refreshInterval: 1h
+
+  secretStoreRef:
+    name: aws-secrets-manager
+    kind: ClusterSecretStore
+
+  target:
+    name: docker-hub
+    creationPolicy: Owner
+
+  data:
+    - secretKey: values
+      remoteRef:
+        key: docker-hub
+
+    - secretKey: mypassword
+      remoteRef:
+        key: docker-hub
+        property: password
+  
+  dataFrom:
+    - extract:
+        key: docker-hub
+```
+EOF
