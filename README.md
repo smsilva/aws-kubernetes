@@ -4,7 +4,7 @@
 
 [Installing or updating the latest version of the AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html)
 
-### 2.1. aws CLI
+### 1.1. aws CLI
 
 ```bash
 curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
@@ -13,7 +13,7 @@ sudo ./aws/install
 aws --version
 ```
 
-### 2.2. eksctl CLI
+### 1.2. eksctl CLI
 
 ```bash
 curl \
@@ -37,7 +37,7 @@ aws eks update-kubeconfig \
   --name "wasp-sandbox-uhb631"
 ```
 
-### 2.1. Create kubeconfig file manually
+### 2.2. Create kubeconfig file manually
 
 [Create kubeconfig file manually]https://docs.aws.amazon.com/eks/latest/userguide/create-kubeconfig.html#create-kubeconfig-manually)
 
@@ -116,14 +116,14 @@ echo "${KUBECONFIG}" > ~/.kube/config
 [Creating an IAM OIDC provider for your cluster](https://docs.aws.amazon.com/eks/latest/userguide/enable-iam-roles-for-service-accounts.html)
 
 ```bash
-oidc_id=$(aws eks describe-cluster \
+EKS_CLUSTER_OIDC_ID=$(aws eks describe-cluster \
   --name wasp-sandbox-uhb631 \
   --query "cluster.identity.oidc.issuer" \
   --output text \
 | cut -d '/' -f 5)
 
 aws iam list-open-id-connect-providers --output text \
-| grep $oidc_id \
+| grep ${EKS_CLUSTER_OIDC_ID?} \
 | cut -d "/" -f4
 ```
 
@@ -131,12 +131,22 @@ aws iam list-open-id-connect-providers --output text \
 
 ```bash
 cat <<EOF > /tmp/eks.conf
-IAM_POLICY_NAME="secretsmanager-docker-hub-read-only"
-IAM_POLICY_CREATION_FILE="/tmp/\${IAM_POLICY_NAME?}-creation.json"
-IAM_POLICY_DATA_FILE="/tmp/\${IAM_POLICY_NAME?}-data.json"
-EKS_CLUSTER_NAME="wasp-sandbox-uhb631"
-K8S_SERVICE_ACCOUNT_NAME="my-service-account"
-K8S_SERVICE_ACCOUNT_NAMESPACE="default"
+export EKS_CLUSTER_ID="$(uuidgen)"
+export EKS_CLUSTER_ID="\${EKS_CLUSTER_ID:0:6}"
+export EKS_CLUSTER_NAME="wasp-sandbox-\${EKS_CLUSTER_ID?}"
+export IAM_POLICY_NAME="secretsmanager-docker-hub-read-only"
+export IAM_POLICY_CREATION_FILE="/tmp/\${IAM_POLICY_NAME?}-creation.json"
+export IAM_POLICY_DATA_FILE="/tmp/\${IAM_POLICY_NAME?}-data.json"
+export K8S_SERVICE_ACCOUNT_NAME="my-service-account"
+export K8S_SERVICE_ACCOUNT_NAMESPACE="default"
+
+echo "EKS_CLUSTER_ID................: \${EKS_CLUSTER_ID}"
+echo "EKS_CLUSTER_NAME..............: \${EKS_CLUSTER_NAME}"
+echo "IAM_POLICY_NAME...............: \${IAM_POLICY_NAME}"
+echo "IAM_POLICY_CREATION_FILE......: \${IAM_POLICY_CREATION_FILE}"
+echo "IAM_POLICY_DATA_FILE..........: \${IAM_POLICY_DATA_FILE}"
+echo "K8S_SERVICE_ACCOUNT_NAME......: \${K8S_SERVICE_ACCOUNT_NAME}"
+echo "K8S_SERVICE_ACCOUNT_NAMESPACE.: \${K8S_SERVICE_ACCOUNT_NAMESPACE}"
 EOF
 
 source /tmp/eks.conf
@@ -260,5 +270,5 @@ spec:
   dataFrom:
     - extract:
         key: docker-hub
-```
 EOF
+```
