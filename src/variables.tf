@@ -23,9 +23,9 @@ variable "vpc_azs" {
   type        = list(string)
 
   default = [
-    "us-east-2a",
-    "us-east-2b",
-    "us-east-2c"
+    "us-east-1a",
+    "us-east-1b",
+    "us-east-1c"
   ]
 }
 
@@ -59,7 +59,6 @@ variable "vpc_tags" {
   description = "Tags to apply to resources created by VPC module"
   type        = map(string)
   default = {
-    Terraform   = "true"
-    Environment = "dev"
+    Terraform = "true"
   }
 }
