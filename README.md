@@ -103,31 +103,9 @@ EOF
 echo "${KUBECONFIG}" > ~/.kube/config
 ```
 
-##  3. Terraform
+##  3. External Secrets
 
-### 3.1. Helm Provider
-
-[exec-plugins](https://registry.terraform.io/providers/hashicorp/helm/latest/docs#exec-plugins)
-
-##  4. External Secrets
-
-### 4.1. Creating an IAM OIDC provider for your cluster
-
-[Creating an IAM OIDC provider for your cluster](https://docs.aws.amazon.com/eks/latest/userguide/enable-iam-roles-for-service-accounts.html)
-
-```bash
-EKS_CLUSTER_OIDC_ID=$(aws eks describe-cluster \
-  --name wasp-sandbox-uhb631 \
-  --query "cluster.identity.oidc.issuer" \
-  --output text \
-| cut -d '/' -f 5)
-
-aws iam list-open-id-connect-providers --output text \
-| grep ${EKS_CLUSTER_OIDC_ID?} \
-| cut -d "/" -f4
-```
-
-[Configuring a Kubernetes service account to assume an IAM role](https://docs.aws.amazon.com/eks/latest/userguide/associate-service-account-role.html)
+### 3.1. Environment Variables
 
 ```bash
 cat <<EOF > /tmp/eks.conf
@@ -137,19 +115,55 @@ export EKS_CLUSTER_NAME="wasp-sandbox-\${EKS_CLUSTER_ID?}"
 export IAM_POLICY_NAME="secretsmanager-docker-hub-read-only"
 export IAM_POLICY_CREATION_FILE="/tmp/\${IAM_POLICY_NAME?}-creation.json"
 export IAM_POLICY_DATA_FILE="/tmp/\${IAM_POLICY_NAME?}-data.json"
-export K8S_SERVICE_ACCOUNT_NAME="my-service-account"
-export K8S_SERVICE_ACCOUNT_NAMESPACE="default"
+export IAM_ROLE_NAME="external-secrets-operator"
+export K8S_SERVICE_ACCOUNT_NAME="secretsmanager-access"
+export K8S_SERVICE_ACCOUNT_NAMESPACE="external-secrets"
 
 echo "EKS_CLUSTER_ID................: \${EKS_CLUSTER_ID}"
 echo "EKS_CLUSTER_NAME..............: \${EKS_CLUSTER_NAME}"
 echo "IAM_POLICY_NAME...............: \${IAM_POLICY_NAME}"
 echo "IAM_POLICY_CREATION_FILE......: \${IAM_POLICY_CREATION_FILE}"
 echo "IAM_POLICY_DATA_FILE..........: \${IAM_POLICY_DATA_FILE}"
+echo "IAM_ROLE_NAME.................: \${IAM_ROLE_NAME}"
 echo "K8S_SERVICE_ACCOUNT_NAME......: \${K8S_SERVICE_ACCOUNT_NAME}"
 echo "K8S_SERVICE_ACCOUNT_NAMESPACE.: \${K8S_SERVICE_ACCOUNT_NAMESPACE}"
 EOF
 
 source /tmp/eks.conf
+
+aws sts get-caller-identity
+
+aws eks update-kubeconfig \
+  --region "us-east-1" \
+  --name "${EKS_CLUSTER_NAME?}"
+```
+
+### 3.2. Check IAM OIDC provider
+
+[Documentation](https://docs.aws.amazon.com/eks/latest/userguide/enable-iam-roles-for-service-accounts.html)
+
+```bash
+EKS_CLUSTER_OIDC_ID=$(aws eks describe-cluster \
+  --name ${EKS_CLUSTER_NAME?} \
+  --query "cluster.identity.oidc.issuer" \
+  --output text \
+| cut -d '/' -f 5)
+
+aws iam list-open-id-connect-providers --output text \
+| grep ${EKS_CLUSTER_OIDC_ID?} \
+| cut -d "/" -f4
+```
+
+### 3.3. Configuring a Kubernetes service account to assume an IAM role
+
+[Documentation](https://docs.aws.amazon.com/eks/latest/userguide/associate-service-account-role.html)
+
+```bash
+source /tmp/eks.conf
+
+aws secretsmanager list-secrets \
+| jq '.SecretList[] | select(.Name | contains("docker-hub-credentials"))' \
+| jq -r .ARN
 
 cat <<EOF > ${IAM_POLICY_CREATION_FILE?}
 {
@@ -164,7 +178,7 @@ cat <<EOF > ${IAM_POLICY_CREATION_FILE?}
         "secretsmanager:ListSecretVersionIds"
       ],
       "Resource": [
-        "arn:aws:secretsmanager:us-east-2:221047292361:secret:docker-hub-*"
+        "arn:aws:secretsmanager:us-east-1:221047292361:secret:docker-hub-*"
       ]
     }
   ]
@@ -178,20 +192,27 @@ aws iam create-policy \
 
 IAM_POLICY_ARN=$(jq -r .Policy.Arn ${IAM_POLICY_DATA_FILE?})
 
+kubectl create namespace ${K8S_SERVICE_ACCOUNT_NAMESPACE?}
+
 eksctl create iamserviceaccount \
+  --cluster ${EKS_CLUSTER_NAME?} \
   --name ${K8S_SERVICE_ACCOUNT_NAME?} \
   --namespace ${K8S_SERVICE_ACCOUNT_NAMESPACE?} \
-  --cluster ${EKS_CLUSTER_NAME?} \
-  --role-name "my-role" \
   --attach-policy-arn ${IAM_POLICY_ARN?} \
+  --role-name ${IAM_ROLE_NAME?} \
   --approve
 
 aws iam get-role \
-  --role-name my-role \
+  --role-name ${IAM_ROLE_NAME?} \
+  --query Role.Arn \
+  --output text
+
+aws iam get-role \
+  --role-name ${IAM_ROLE_NAME?} \
   --query Role.AssumeRolePolicyDocument
 
 aws iam list-attached-role-policies \
-  --role-name my-role \
+  --role-name ${IAM_ROLE_NAME?} \
   --query AttachedPolicies[].PolicyArn \
   --output text
 
@@ -199,14 +220,20 @@ aws iam get-policy \
   --policy-arn ${IAM_POLICY_ARN?}
 
 aws iam get-policy-version \
-  --policy-arn ${IAM_POLICY_ARN?}M \
+  --policy-arn ${IAM_POLICY_ARN?} \
   --version-id v1
 
 kubectl describe serviceaccount ${K8S_SERVICE_ACCOUNT_NAME?} \
   --namespace ${K8S_SERVICE_ACCOUNT_NAMESPACE?}
+
+kubectl get serviceaccount ${K8S_SERVICE_ACCOUNT_NAME?} \
+  --namespace ${K8S_SERVICE_ACCOUNT_NAMESPACE?} \
+  --output yaml \
+| kubectl-neat \
+| yq -
 ```
 
-### 4.2. Setup Cluster Secret Store
+### 3.4. Setup Cluster Secret Store
 
 [EKS Service Account credentials
 ](https://external-secrets.io/v0.8.1/provider/aws-secrets-manager/#eks-service-account-credentials)
@@ -225,6 +252,8 @@ helm upgrade \
   external-secrets external-secrets/external-secrets \
   --wait
 
+watch -n 5 'kubectl -n example get css,es; echo; kubectl -n example get secrets | egrep "NAME|docker"'
+
 cat <<EOF | kubectl apply -f -
 apiVersion: external-secrets.io/v1beta1
 kind: ClusterSecretStore
@@ -234,41 +263,44 @@ spec:
   provider:
     aws:
       service: SecretsManager
-      region: us-east-2
-
+      region: us-east-1
       auth:
         jwt:
           serviceAccountRef:
-            name: my-service-account
-            namespace: default
----
+            name: ${K8S_SERVICE_ACCOUNT_NAME?}
+            namespace: ${K8S_SERVICE_ACCOUNT_NAMESPACE?}
+EOF
+
+kubectl create namespace example
+
+cat <<EOF | kubectl apply -f -
 apiVersion: external-secrets.io/v1beta1
 kind: ExternalSecret
 metadata:
-  name: docker-hub
+  name: docker-hub-credentials
 spec:
   refreshInterval: 1h
 
   secretStoreRef:
-    name: aws-secrets-manager
     kind: ClusterSecretStore
+    name: aws-secrets-manager
 
   target:
-    name: docker-hub
+    name: docker-hub-credentials
     creationPolicy: Owner
 
   data:
     - secretKey: values
       remoteRef:
-        key: docker-hub
+        key: docker-hub-credentials
 
     - secretKey: mypassword
       remoteRef:
-        key: docker-hub
+        key: docker-hub-credentials
         property: password
   
   dataFrom:
     - extract:
-        key: docker-hub
+        key: docker-hub-credentials
 EOF
 ```
