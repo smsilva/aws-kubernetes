@@ -34,7 +34,7 @@ eksctl get clusters
 ```bash
 aws eks update-kubeconfig \
   --region "us-east-1" \
-  --name "wasp-sandbox-uhb631"
+  --name "CLUSTER_NAME_HERE"
 ```
 
 ### 2.2. Create kubeconfig file manually
@@ -276,7 +276,7 @@ cat <<EOF | kubectl -n example apply -f -
 apiVersion: external-secrets.io/v1beta1
 kind: ExternalSecret
 metadata:
-  name: docker-hub-credentials
+  name: docker-hub
 spec:
   refreshInterval: 1h
 
@@ -285,7 +285,7 @@ spec:
     name: aws-secrets-manager
 
   target:
-    name: docker-hub-credentials
+    name: docker-hub
     creationPolicy: Owner
 
   data:
