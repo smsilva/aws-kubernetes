@@ -34,7 +34,7 @@ eksctl get clusters
 ```bash
 aws eks update-kubeconfig \
   --region "us-east-1" \
-  --name "wasp-sandbox-uhb631"
+  --name "CLUSTER_NAME_HERE"
 ```
 
 ### 2.2. Create kubeconfig file manually
@@ -229,8 +229,7 @@ kubectl describe serviceaccount ${K8S_SERVICE_ACCOUNT_NAME?} \
 kubectl get serviceaccount ${K8S_SERVICE_ACCOUNT_NAME?} \
   --namespace ${K8S_SERVICE_ACCOUNT_NAMESPACE?} \
   --output yaml \
-| kubectl-neat \
-| yq -
+| kubectl-neat
 ```
 
 ### 3.4. Setup Cluster Secret Store
@@ -273,11 +272,11 @@ EOF
 
 kubectl create namespace example
 
-cat <<EOF | kubectl apply -f -
+cat <<EOF | kubectl -n example apply -f -
 apiVersion: external-secrets.io/v1beta1
 kind: ExternalSecret
 metadata:
-  name: docker-hub-credentials
+  name: docker-hub
 spec:
   refreshInterval: 1h
 
@@ -286,7 +285,7 @@ spec:
     name: aws-secrets-manager
 
   target:
-    name: docker-hub-credentials
+    name: docker-hub
     creationPolicy: Owner
 
   data:

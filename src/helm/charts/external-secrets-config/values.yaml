@@ -1,0 +1,7 @@
+clusterSecretStore:
+  name: aws-secrets-manager
+  region: us-east-1
+
+serviceAccount:
+  name: should-be-override
+  namespace: should-be-override
