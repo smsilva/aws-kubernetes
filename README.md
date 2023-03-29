@@ -229,8 +229,7 @@ kubectl describe serviceaccount ${K8S_SERVICE_ACCOUNT_NAME?} \
 kubectl get serviceaccount ${K8S_SERVICE_ACCOUNT_NAME?} \
   --namespace ${K8S_SERVICE_ACCOUNT_NAMESPACE?} \
   --output yaml \
-| kubectl-neat \
-| yq -
+| kubectl-neat
 ```
 
 ### 3.4. Setup Cluster Secret Store
@@ -273,7 +272,7 @@ EOF
 
 kubectl create namespace example
 
-cat <<EOF | kubectl apply -f -
+cat <<EOF | kubectl -n example apply -f -
 apiVersion: external-secrets.io/v1beta1
 kind: ExternalSecret
 metadata:
