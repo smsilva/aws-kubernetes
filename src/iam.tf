@@ -72,6 +72,10 @@ resource "helm_release" "external_secrets" {
   repository = "https://charts.external-secrets.io"
   chart      = "external-secrets"
   version    = "0.8.1"
+
+  depends_on = [
+    module.eks
+  ]
 }
 
 resource "helm_release" "external_secrets_config" {
