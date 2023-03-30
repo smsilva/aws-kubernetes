@@ -5,3 +5,6 @@ clusterSecretStore:
 serviceAccount:
   name: should-be-override
   namespace: should-be-override
+
+iam:
+  roleArn: should-be-override

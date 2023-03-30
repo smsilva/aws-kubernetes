@@ -1,5 +1,6 @@
 locals {
-  cluster_name = "wasp-sandbox-${random_string.id.result}"
+  cluster_name             = "wasp-sandbox-${random_string.id.result}"
+  install_external_secrets = true
 
   tags = {
     origin = "terraform"
@@ -23,4 +24,18 @@ module "eks" {
   cluster_security_group_additional_rules = local.cluster_security_group_additional_rules
   node_security_group_additional_rules    = local.node_security_group_additional_rules
   tags                                    = local.tags
+}
+
+module "external_secrets" {
+  count  = local.install_external_secrets ? 1 : 0
+  source = "./helm/modules/external-secrets"
+
+  cluster_name      = module.eks.cluster_name
+  oidc_provider_arn = module.eks.oidc_provider_arn
+  oidc_provider     = module.eks.oidc_provider
+  iam_policy_name   = "secretsmanager-docker-hub-read-only"
+
+  depends_on = [
+    module.eks
+  ]
 }
