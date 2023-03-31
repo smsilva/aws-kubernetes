@@ -1,7 +1,13 @@
 locals {
   eks_managed_node_group_defaults = {
-    ami_type       = "AL2_x86_64"
-    instance_types = ["m6i.large", "m5.large", "m5n.large", "m5zn.large"]
+    ami_type = "AL2_x86_64"
+
+    instance_types = [
+      "m6i.large",
+      "m5.large",
+      "m5n.large",
+      "m5zn.large",
+    ]
 
     # We are using the IRSA created below for permissions
     # However, we have to deploy with the policy attached FIRST (when creating a fresh cluster)
@@ -15,7 +21,10 @@ locals {
     default_node_group = {
       use_custom_launch_template = false
 
-      disk_size = 50
+      disk_size    = 50
+      min_size     = 1
+      max_size     = 5
+      desired_size = 1
 
       remote_access = {
         ec2_ssh_key               = module.key_pair.key_pair_name
@@ -46,19 +55,18 @@ locals {
 
       capacity_type        = "SPOT"
       force_update_version = true
-      instance_types       = ["m6i.large", "m5.large", "m5n.large", "m5zn.large"]
+
+      instance_types = [
+        "m6i.large",
+        "m5.large",
+        "m5n.large",
+        "m5zn.large",
+      ]
+
       labels = {
         GithubRepo = "terraform-aws-eks"
         GithubOrg  = "terraform-aws-modules"
       }
-
-      taints = [
-        {
-          key    = "dedicated"
-          value  = "gpuGroup"
-          effect = "NO_SCHEDULE"
-        }
-      ]
 
       update_config = {
         max_unavailable_percentage = 33 # or set `max_unavailable`
@@ -96,9 +104,11 @@ locals {
       iam_role_name            = "eks-managed-node-group-complete-example"
       iam_role_use_name_prefix = false
       iam_role_description     = "EKS managed node group complete example role"
+
       iam_role_tags = {
         Purpose = "Protector of the kubelet"
       }
+
       iam_role_additional_policies = {
         AmazonEC2ContainerRegistryReadOnly = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
         additional                         = aws_iam_policy.node_additional.arn
