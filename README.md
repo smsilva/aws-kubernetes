@@ -296,11 +296,13 @@ kubectl get configmap aws-auth \
 kubectl edit configmap aws-auth \
   --namespace kube-system
 
-code ~/.aws/config
+cat ~/.aws/config
 
+cat <<EOF >> ~/.aws/config
 [profile eks-admin]
 role_arn = arn:aws:iam::221047292361:role/eks-admin
 source_profile = default
+EOF
 
 apiVersion: v1
 kind: ConfigMap
