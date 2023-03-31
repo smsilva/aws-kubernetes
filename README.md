@@ -47,7 +47,7 @@ aws eks update-kubeconfig \
 ```bash
 cat <<EOF > /tmp/eks.conf
 export EKS_CLUSTER_ID="$(uuidgen)"
-export EKS_CLUSTER_ID="\${EKS_CLUSTER_ID:0:6}"
+export EKS_CLUSTER_ID="\${EKS_CLUSTER_ID:0:4}"
 export EKS_CLUSTER_NAME="wasp-sandbox-\${EKS_CLUSTER_ID?}"
 export EKS_CLUSTER_REGION="\${AWS_DEFAULT_REGION-us-east-1}"
 export IAM_POLICY_NAME="secretsmanager-docker-hub-read-only"
@@ -87,7 +87,6 @@ eksctl create cluster \
 aws sts get-caller-identity
 
 aws eks update-kubeconfig \
-  --region "us-east-1" \
   --name "${EKS_CLUSTER_NAME?}"
 ```
 
@@ -257,7 +256,7 @@ spec:
 EOF
 ```
 
-##  4.   IAM
+##  4. IAM
 
 ### 4.1. Commands
 
@@ -330,7 +329,7 @@ aws eks update-kubeconfig \
 kubectl auth can-i "*" "*"
 ```
 
-##  5.   Terraform Providers
+##  5. Terraform Providers
 
 ### 5.1. Helm
 
@@ -349,7 +348,7 @@ provider "helm" {
 }
 ```
 
-### 5.1. Kubernetes
+### 5.2. Kubernetes
 
 ```lua
 provider "kubernetes" {
