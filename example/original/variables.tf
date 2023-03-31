@@ -6,14 +6,10 @@ resource "random_string" "id" {
   special     = false
 }
 
-variable "cluster_name" {
-  type    = string
-  default = "wasp-sandbox-example"
-}
-
-variable "region" {
-  type    = string
-  default = "us-east-1"
+variable "vpc_name" {
+  description = "Name of VPC"
+  type        = string
+  default     = "example-vpc"
 }
 
 variable "vpc_cidr" {
@@ -33,25 +29,13 @@ variable "vpc_azs" {
   ]
 }
 
-variable "vpc_intra_subnets" {
-  description = "Intra subnets for VPC"
-  type        = list(string)
-
-  default = [
-    "10.244.52.0/24",
-    "10.244.53.0/24",
-    "10.244.54.0/24",
-  ]
-}
-
 variable "vpc_private_subnets" {
   description = "Private subnets for VPC"
   type        = list(string)
 
   default = [
-    "10.244.0.0/20",
-    "10.244.16.0/20",
-    "10.244.32.0/20",
+    "10.244.1.0/24",
+    "10.244.2.0/24"
   ]
 }
 
@@ -60,9 +44,8 @@ variable "vpc_public_subnets" {
   type        = list(string)
 
   default = [
-    "10.244.48.0/24",
-    "10.244.49.0/24",
-    "10.244.50.0/24",
+    "10.244.101.0/24",
+    "10.244.102.0/24"
   ]
 }
 

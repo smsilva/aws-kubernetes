@@ -56,6 +56,7 @@ export IAM_POLICY_DATA_FILE="/tmp/\${IAM_POLICY_NAME?}-data.json"
 export IAM_ROLE_NAME="external-secrets-operator"
 export K8S_SERVICE_ACCOUNT_NAME="secretsmanager-access"
 export K8S_SERVICE_ACCOUNT_NAMESPACE="external-secrets"
+export TF_VAR_cluster_name=\${EKS_CLUSTER_NAME?}
 
 echo "EKS_CLUSTER_ID................: \${EKS_CLUSTER_ID}"
 echo "EKS_CLUSTER_NAME..............: \${EKS_CLUSTER_NAME}"
@@ -66,6 +67,7 @@ echo "IAM_POLICY_DATA_FILE..........: \${IAM_POLICY_DATA_FILE}"
 echo "IAM_ROLE_NAME.................: \${IAM_ROLE_NAME}"
 echo "K8S_SERVICE_ACCOUNT_NAME......: \${K8S_SERVICE_ACCOUNT_NAME}"
 echo "K8S_SERVICE_ACCOUNT_NAMESPACE.: \${K8S_SERVICE_ACCOUNT_NAMESPACE}"
+echo "TF_VAR_cluster_name...........: \${TF_VAR_cluster_name}"
 EOF
 
 source /tmp/eks.conf
