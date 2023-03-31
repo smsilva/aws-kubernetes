@@ -49,6 +49,7 @@ cat <<EOF > /tmp/eks.conf
 export EKS_CLUSTER_ID="$(uuidgen)"
 export EKS_CLUSTER_ID="\${EKS_CLUSTER_ID:0:6}"
 export EKS_CLUSTER_NAME="wasp-sandbox-\${EKS_CLUSTER_ID?}"
+export EKS_CLUSTER_REGION="\${AWS_DEFAULT_REGION-us-east-1}"
 export IAM_POLICY_NAME="secretsmanager-docker-hub-read-only"
 export IAM_POLICY_CREATION_FILE="/tmp/\${IAM_POLICY_NAME?}-creation.json"
 export IAM_POLICY_DATA_FILE="/tmp/\${IAM_POLICY_NAME?}-data.json"
@@ -58,6 +59,7 @@ export K8S_SERVICE_ACCOUNT_NAMESPACE="external-secrets"
 
 echo "EKS_CLUSTER_ID................: \${EKS_CLUSTER_ID}"
 echo "EKS_CLUSTER_NAME..............: \${EKS_CLUSTER_NAME}"
+echo "EKS_CLUSTER_REGION............: \${EKS_CLUSTER_REGION}"
 echo "IAM_POLICY_NAME...............: \${IAM_POLICY_NAME}"
 echo "IAM_POLICY_CREATION_FILE......: \${IAM_POLICY_CREATION_FILE}"
 echo "IAM_POLICY_DATA_FILE..........: \${IAM_POLICY_DATA_FILE}"
@@ -67,6 +69,18 @@ echo "K8S_SERVICE_ACCOUNT_NAMESPACE.: \${K8S_SERVICE_ACCOUNT_NAMESPACE}"
 EOF
 
 source /tmp/eks.conf
+
+eksctl create cluster \
+  --name ${EKS_CLUSTER_NAME?} \
+  --region ${EKS_CLUSTER_REGION?} \
+  --zones "us-east-1a, us-east-1" \
+  --with-oidc \
+  --ssh-access \
+  --ssh-public-key ~/.ssh/id_rsa.pub \
+  --managed \
+  --version "1.24" \
+  --nodes-min 1 \
+  --nodes-max 5
 
 aws sts get-caller-identity
 
@@ -239,4 +253,109 @@ spec:
     - extract:
         key: docker-hub-credentials
 EOF
+```
+
+##  4.   IAM
+
+### 4.1. Commands
+
+```bash
+export EKS_CLUSTER_NAME=$(
+  eksctl get clusters \
+  --output json \
+| jq -r '.[0].Name'
+)
+
+aws eks update-kubeconfig \
+  --profile terraform \
+  --name ${EKS_CLUSTER_NAME?}
+
+export IAM_EKS_ADMIN_ROLE_ARN=$(
+aws iam get-role \
+  --role-name eks-admin \
+  --query "Role.Arn" \
+  --output text
+)
+
+aws sts assume-role \
+  --role-arn ${IAM_EKS_ADMIN_ROLE_ARN?} \
+  --role-session-name silvios-session \
+  --profile default
+
+aws eks update-kubeconfig \
+  --profile default \
+  --name ${EKS_CLUSTER_NAME?}
+
+kubectl get configmap aws-auth \
+  --namespace kube-system \
+  --output yaml \
+| kubectl neat
+
+kubectl edit configmap aws-auth \
+  --namespace kube-system
+
+code ~/.aws/config
+
+[profile eks-admin]
+role_arn = arn:aws:iam::221047292361:role/eks-admin
+source_profile = default
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: aws-auth
+  namespace: kube-system
+data:
+  mapRoles: |
+    - groups:
+      - system:bootstrappers
+      - system:nodes
+      rolearn: arn:aws:iam::221047292361:role/green-eks-node-group-20230330162751518900000001
+      username: system:node:{{EC2PrivateDNSName}}
+    # new role:
+    - rolearn: arn:aws:iam::221047292361:role/eks-admin
+      username: eks-admin
+      groups:
+      - system:masters
+
+aws eks update-kubeconfig \
+  --region us-east-1 \
+  --name ${EKS_CLUSTER_NAME?} \
+  --profile eks-admin
+
+kubectl auth can-i "*" "*"
+```
+
+##  5.   Terraform Providers
+
+### 5.1. Helm
+
+```lua
+provider "helm" {
+  kubernetes {
+    host                   = data.aws_eks_cluster.cluster.endpoint
+    cluster_ca_certificate = base64decode(data.aws_eks_cluster.cluster.certificate_authority.0.data)
+
+    exec {
+      api_version = "client.authentication.k8s.io/v1beta1"
+      command     = "aws"
+      args        = ["eks", "get-token", "--cluster-name", data.aws_eks_cluster.cluster.name, "--profile", "terraform"]
+    }
+  }
+}
+```
+
+### 5.1. Kubernetes
+
+```lua
+provider "kubernetes" {
+  host                   = data.aws_eks_cluster.cluster.endpoint
+  cluster_ca_certificate = base64decode(data.aws_eks_cluster.cluster.certificate_authority.0.data)
+
+  exec {
+    api_version = "client.authentication.k8s.io/v1beta1"
+    command     = "aws"
+    args        = ["eks", "get-token", "--cluster-name", data.aws_eks_cluster.cluster.name, "--profile", "terraform"]
+  }
+}
 ```

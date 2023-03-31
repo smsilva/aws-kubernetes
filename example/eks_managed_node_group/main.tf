@@ -1,8 +1,9 @@
 locals {
-  name            = "ex-${replace(basename(path.cwd), "_", "-")}"
-  cluster_version = "1.24"
-  region          = "us-east-1"
-  vpc_cidr        = "10.0.0.0/16"
+  name                     = "ex-${replace(basename(path.cwd), "_", "-")}"
+  cluster_version          = "1.24"
+  region                   = "us-east-1"
+  vpc_cidr                 = "10.0.0.0/16"
+  install_external_secrets = true
 
   tags = {
     Example    = local.name
@@ -25,7 +26,23 @@ module "eks" {
   subnet_ids                      = module.vpc.private_subnets
   control_plane_subnet_ids        = module.vpc.intra_subnets
   manage_aws_auth_configmap       = true
+  aws_auth_roles                  = local.aws_auth_roles
   eks_managed_node_group_defaults = local.eks_managed_node_group_defaults
   eks_managed_node_groups         = local.eks_managed_node_groups
   tags                            = local.tags
+}
+
+module "external_secrets" {
+  count  = local.install_external_secrets ? 1 : 0
+  source = "./helm/modules/external-secrets"
+
+  cluster_name      = module.eks.cluster_name
+  oidc_provider_arn = module.eks.oidc_provider_arn
+  oidc_provider     = module.eks.oidc_provider
+  iam_policy_name   = "secretsmanager-docker-hub-read-only"
+
+  depends_on = [
+    module.eks,
+    module.eks.eks_managed_node_groups
+  ]
 }
